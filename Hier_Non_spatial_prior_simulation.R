@@ -8,16 +8,27 @@ library(patchwork)
 setwd("C:/GitHub/BBS_Prior_Simulation")
 
 
-# parameters to simulate
+# temporal parameters to simulate
 
-# sd of spline parameters
-# sd of annual fluctuations
-# sd of first-differences
+# scale of spline parameters
+# scale of annual fluctuations
+# scale of first-differences
 
 # compare to magnitude of annual fluctuations
 # compare to magnitude of first-differences
 # compare all possible 1-year trends
 # compare to all possible medium-longer term trends
+
+# other parameters worth simulating
+
+# scale of observer variation
+# compare to variation in mean counts among route and observer combinations
+# scale of route variation
+# compare to variation in mean counts among routes within stratum
+
+# count-specific parameters worth considering (or posterior predictive checks?)
+# scale of overdispersion
+# zero-inflation
 
 
 
