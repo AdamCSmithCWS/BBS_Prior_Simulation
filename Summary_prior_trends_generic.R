@@ -4,9 +4,10 @@ library(patchwork)
 
 
 # load cbc and bbs annual indices from Adubon and USGS --------------------
+reload <- FALSE
 
 #just the survey-wide and state-level estimates 
-
+if(reload){
 ## downloaded from https://www.mbr-pwrc.usgs.gov/ on June 13 2022
 bbs_inds <- read.csv("data/Index_best_1966-2019_core_best.csv",
                              colClasses = c("integer",
@@ -50,6 +51,9 @@ all_inds <- bind_rows(bbs_inds,cbc_inds)
 
 save(list = "all_inds",
      file = "data/all_state_survey_wide_indices_BBS_CBC.RData")
+}else{
+load("data/all_state_survey_wide_indices_BBS_CBC.RData")
+}
 
 # function to calculate a %/year trend from a count-scale trajectory
 trs <- function(y1,y2,ny){
