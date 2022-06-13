@@ -3,3 +3,7 @@
 .RData
 .Ruserdata
 //doc
+data/*.csv
+data/cbc_v4_download/
+
+

@@ -3,28 +3,64 @@ library(tidyverse)
 library(patchwork)
 
 
-bbs_indices_usgs <- read.csv("data/Index_best_1966-2019_core_best.csv",
+# load cbc and bbs annual indices from Adubon and USGS --------------------
+
+#just the survey-wide and state-level estimates 
+
+## downloaded from https://www.mbr-pwrc.usgs.gov/ on June 13 2022
+bbs_inds <- read.csv("data/Index_best_1966-2019_core_best.csv",
                              colClasses = c("integer",
                                             "character",
                                             "integer",
                                             "numeric",
                                             "numeric",
-                                            "numeric"))
-
-bbs_inds <- bbs_indices_usgs %>% 
+                                            "numeric")) %>% 
+rename(lci = X2.5..CI,
+       uci = X97.5..CI) %>% 
+  mutate(cv = ((uci-lci)/4)/Index ) %>% 
+  select(AOU,Region,Year,Index,cv) %>% 
   filter(Region == "SU1" |
-           !grepl(x = Region, pattern = "[[:digit:]]")) #just hte continental estimates
+           !grepl(x = Region, pattern = "[[:digit:]]")) %>% # state level names do not have numbers, all others do
+  filter(cv < 100,
+         !is.na(cv)) %>% 
+  mutate(Region = ifelse(Region == "SU1","Survey_Wide",Region),
+         Survey = "BBS",
+         AOU = as.character(AOU))
+
+
+# provided by Tim Meehan in email June 13 2022.
+cbc_inds <- read.csv("data/cbc_trends_abundance_indices_and_scaling_factors_v4.0_web_download_12Apr2022.csv") %>% 
+  filter(parameter == "AbundanceIndex",
+         (stratum == "USACAN" | 
+            nchar(stratum) == 2)) %>% 
+  mutate(cv = ((estimate_ucl-estimate_lcl)/4)/estimate_median ) %>% 
+select(ebird_com_name,stratum,count_year,estimate_median,cv) %>%  
+rename(AOU = ebird_com_name,
+       Region = stratum,
+       Year = count_year,
+       Index = estimate_median) %>% 
+  filter(cv < 100) %>% 
+  mutate(Region = ifelse(Region == "USACAN","Survey_Wide",Region),
+         Survey = "CBC",
+         Year = as.integer(Year))
+
+
+
+all_inds <- bind_rows(bbs_inds,cbc_inds)
+
+save(list = "all_inds",
+     file = "data/all_state_survey_wide_indices_BBS_CBC.RData")
 
 # function to calculate a %/year trend from a count-scale trajectory
 trs <- function(y1,y2,ny){
   tt <- (((y2/y1)^(1/ny))-1)*100
 }
 
-miny = min(bbs_inds$Year)
-maxy = max(bbs_inds$Year)
-bbs_trends <- NULL
+miny = min(all_inds$Year)
+maxy = max(all_inds$Year)
+all_trends <- NULL
 
-for(tl in c(2,6,11,21,54)){ #estimating all possible 1-year, 2-year, 5-year, 10-year, and 20-year trends, with no uncertainty, just the point estimates based on the comparison of posterior means fo annual indices
+for(tl in c(2,6,11,21,51)){ #estimating all possible 1-year, 2-year, 5-year, 10-year, and 20-year trends, with no uncertainty, just the point estimates based on the comparison of posterior means fo annual indices
   ny = tl-1
   yrs1 <- seq(miny,(maxy-ny),by = 1)
   yrs2 <- yrs1+ny
@@ -35,16 +71,16 @@ for(tl in c(2,6,11,21,54)){ #estimating all possible 1-year, 2-year, 5-year, 10-
     nyh2 <- paste0("Y",y2)
     nyh1 <- paste0("Y",y1)
     
-    tmp <- bbs_inds %>% 
+    tmp <- all_inds %>% 
       filter(Year %in% c(y1,y2)) %>% 
-      select(AOU,Index,Year,Region) %>% 
+      select(AOU,Index,Year,Region,Survey) %>% 
       pivot_wider(.,names_from = Year,
                   values_from = Index,
                   names_prefix = "Y") %>%
       rename_with(.,~gsub(pattern = nyh2,replacement = "YE", .x)) %>% 
       rename_with(.,~gsub(pattern = nyh1,replacement = "YS", .x)) %>% 
       drop_na() %>% 
-      group_by(AOU,Region) %>% 
+      group_by(AOU,Region,Survey) %>% 
       summarise(trend = trs(YS,YE,ny),
                 .groups = "keep")%>% 
       mutate(first_year = y1,
@@ -53,33 +89,36 @@ for(tl in c(2,6,11,21,54)){ #estimating all possible 1-year, 2-year, 5-year, 10-
              abs_trend = abs(trend),
              t_years = paste0(ny,"-year trends"))
     
-    bbs_trends <- bind_rows(bbs_trends,tmp)
+    all_trends <- bind_rows(all_trends,tmp)
   }
 }
 
-t_quants <- bbs_trends %>% 
-  group_by(t_years,Region) %>% 
+t_quants <- all_trends %>% 
+  group_by(t_years,Region,Survey) %>% 
   summarise(x99 = quantile(abs_trend,0.99),
             x995 = quantile(abs_trend,0.995))
 
-bbs_trends <- bbs_trends %>% 
+all_trends <- all_trends %>% 
   mutate(t_years = factor(t_years,
                           levels = c("1-year trends",
                                      "5-year trends",
                                      "10-year trends",
                                      "20-year trends",
-                                     "53-year trends"),
+                                     "50-year trends"),
                           ordered = TRUE))
 
-bbs_continental_trends <- bbs_trends %>% 
-  filter(Region == "SU1")
-bbs_politic_trends <- bbs_trends %>% 
-  filter(Region != "SU1")
+all_continental_trends <- all_trends %>% 
+  filter(Region == "Survey_Wide")
+all_politic_trends <- all_trends %>% 
+  filter(Region != "Survey_Wide")
 
-realised_bbs_politic_freq <- ggplot(data = bbs_politic_trends,
-                                 aes(abs_trend,after_stat(density)))+
-  geom_freqpoly(breaks = c(0,seq(0.1,40,0.5)),center = 0)+
-  xlab("Absolute value of BBS state/province trends USGS models (1966-2019)")+
+mxabs = 2000#quantile(all_trends$abs_trend,0.9999)
+
+realised_all_politic_freq <- ggplot(data = all_politic_trends,
+                                 aes(abs_trend,after_stat(density),
+                                     colour = Survey))+
+  geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+  xlab("Absolute value of state/province trends USGS and Audubon models (1966-2019)")+
   ylab("")+
   theme_bw()+
   coord_cartesian(ylim = c(0,0.7),
@@ -87,12 +126,13 @@ realised_bbs_politic_freq <- ggplot(data = bbs_politic_trends,
   facet_wrap(vars(t_years),
              nrow = 1,
              ncol = 5)
-print(realised_bbs_politic_freq)
+print(realised_all_politic_freq)
 
-realised_bbs_sw_freq <- ggplot(data = bbs_continental_trends,
-                                 aes(abs_trend,after_stat(density)))+
-  geom_freqpoly(breaks = c(0,seq(0.1,40,0.5)),center = 0)+
-  xlab("Absolute value of BBS survey-wide trends USGS models (1966-2019)")+
+realised_all_sw_freq <- ggplot(data = all_continental_trends,
+                                 aes(abs_trend,after_stat(density),
+                                     colour = Survey))+
+  geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+  xlab("Absolute value of survey-wide trends USGS and Audubon models (1966-2019)")+
   ylab("")+
   theme_bw()+
   coord_cartesian(ylim = c(0,0.7),
@@ -100,23 +140,24 @@ realised_bbs_sw_freq <- ggplot(data = bbs_continental_trends,
   facet_wrap(vars(t_years),
              nrow = 1,
              ncol = 5)
-print(realised_bbs_sw_freq)
+print(realised_all_sw_freq)
 
 
-bbs_sd_trends <- bbs_politic_trends %>% 
-  group_by(AOU,t_years) %>% 
-  summarise(sd_trends = sd(trend),
-            min_trend = min(trend),
-            max_trend = max(trend),
-            q5_trend = quantile(trend,0.05),
-            q95_trend = quantile(trend,0.95),
+all_sd_trends <- all_politic_trends %>% 
+  group_by(AOU,t_years,Survey) %>% 
+  summarise(sd_trends = sd(trend,na.rm = TRUE),
+            min_trend = min(trend,na.rm = TRUE),
+            max_trend = max(trend,na.rm = TRUE),
+            q5_trend = quantile(trend,0.05,na.rm = TRUE),
+            q95_trend = quantile(trend,0.95,na.rm = TRUE),
             .groups = "keep") %>% 
   filter(is.finite(sd_trends))
 
-realised_bbs_sd <- ggplot(data = bbs_sd_trends,
-                                    aes(sd_trends,after_stat(density)))+
-  geom_freqpoly(breaks = c(0,seq(0.1,40,0.5)),center = 0)+
-  xlab("SD (by species) of BBS state/province trends USGS models (1966-2019)")+
+realised_all_sd <- ggplot(data = all_sd_trends,
+                                    aes(sd_trends,after_stat(density),
+                                        colour = Survey))+
+  geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+  xlab("SD (by species) of state/province trends USGS and Audubon models (1966-2019)")+
   ylab("")+
   theme_bw()+
   coord_cartesian(ylim = c(0,0.7),
@@ -124,7 +165,17 @@ realised_bbs_sd <- ggplot(data = bbs_sd_trends,
   facet_wrap(vars(t_years),
              nrow = 1,
              ncol = 5)
-print(realised_bbs_sd)
+print(realised_all_sd)
+
+
+
+# Integrate simulated results ---------------------------------------------
+
+
+
+
+
+
 
 
 tb_sims <- data.frame(model = c(rep("GAMYE",2),
@@ -182,7 +233,7 @@ trends_abs1 <- trends_abs %>%
 
 
 
-comp_plot_strat <- realised_bbs_politic_freq +
+comp_plot_strat <- realised_all_politic_freq +
   geom_freqpoly(data = trends_abs1,
                 aes(abs_trend,after_stat(density),
                     colour = scale_factor),
@@ -213,7 +264,7 @@ TRENDS_abs1 <- TRENDS_abs %>%
                                       ordered = TRUE)) %>% 
   filter(distribution_factor %in% c("t3"))
 
-comp_plot_sw <- realised_bbs_sw_freq +
+comp_plot_sw <- realised_all_sw_freq +
   geom_freqpoly(data = TRENDS_abs1,
                 aes(abs_trend,after_stat(density),
                     colour = scale_factor),
@@ -236,7 +287,7 @@ trends_sd <- trends_abs1 %>%
             .groups = "keep") %>% 
   filter(is.finite(sd_trends))
 
-comp_plot_sd <- realised_bbs_sd +
+comp_plot_sd <- realised_all_sd +
   geom_freqpoly(data = trends_sd,
                 aes(sd_trends,after_stat(density),
                     colour = scale_factor),
