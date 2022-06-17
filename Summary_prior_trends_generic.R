@@ -46,6 +46,21 @@ rename(AOU = ebird_com_name,
          Year = as.integer(Year))
 
 
+bbs_trends <- read.csv("data/BBS_1966-2019_core_best_trend.csv")
+
+
+cbc_trends <- read.csv("data/cbc_trends_abundance_indices_and_scaling_factors_v4.0_web_download_12Apr2022.csv") %>% 
+  filter(grepl(pattern = "Trend",parameter),
+         (stratum == "USACAN" | 
+            nchar(stratum) == 2)) %>% 
+  select(ebird_com_name,stratum,estimate_mean,estimate_ucl,estimate_lcl) %>%  
+  rename(AOU = ebird_com_name,
+         Region = stratum,
+         Trend = estimate_mean) %>% 
+  mutate(Region = ifelse(Region == "USACAN","Survey_Wide",Region),
+         Survey = "CBC")
+save(list = c("cbc_trends","bbs_trends"),
+     file = "data/CBC_BBS_published_trends.RData")
 
 all_inds <- bind_rows(bbs_inds,cbc_inds)
 
@@ -53,6 +68,7 @@ save(list = "all_inds",
      file = "data/all_state_survey_wide_indices_BBS_CBC.RData")
 }else{
 load("data/all_state_survey_wide_indices_BBS_CBC.RData")
+  load("data/BBS_1966-2019_core_best_trend.csv")
 }
 
 # function to calculate a %/year trend from a count-scale trajectory
