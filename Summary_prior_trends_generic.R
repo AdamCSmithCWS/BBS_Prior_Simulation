@@ -53,7 +53,7 @@ cbc_trends <- read.csv("data/cbc_trends_abundance_indices_and_scaling_factors_v4
   filter(grepl(pattern = "Trend",parameter),
          (stratum == "USACAN" | 
             nchar(stratum) == 2)) %>% 
-  select(ebird_com_name,stratum,estimate_mean,estimate_ucl,estimate_lcl) %>%  
+  select(ebird_com_name,stratum,estimate_mean,estimate_ucl,estimate_lcl,parameter) %>%  
   rename(AOU = ebird_com_name,
          Region = stratum,
          Trend = estimate_mean) %>% 
@@ -68,7 +68,7 @@ save(list = "all_inds",
      file = "data/all_state_survey_wide_indices_BBS_CBC.RData")
 }else{
 load("data/all_state_survey_wide_indices_BBS_CBC.RData")
-  load("data/BBS_1966-2019_core_best_trend.csv")
+  load("data/CBC_BBS_published_trends.RData")
 }
 
 # function to calculate a %/year trend from a count-scale trajectory
@@ -186,6 +186,111 @@ realised_all_sd <- ggplot(data = all_sd_trends,
              nrow = 1,
              ncol = 5)
 print(realised_all_sd)
+
+
+
+# compare with published trends -------------------------------------------
+
+# 
+# t_table <- data.frame(parameter = c("RatioTrendAllYears",
+#                                     "RatioTrend1993On",
+#                                     "RatioTrend10Year",
+#                                     "RegressionTrend1970On",
+#                                     "RegressionTrend1993On",
+#                                     "RegressionTrend10Year"),
+#                       t_years = c("50-year trends",
+#                                  "20-year trends",
+#                                  "10-year trends",
+#                                  "50-year trends",
+#                                  "20-year trends",
+#                                  "10-year trends"),
+#                       type = c("Ratio",
+#                                "Ratio",
+#                                "Ratio",
+#                                "Slope",
+#                                "Slope",
+#                                "Slope"))
+#                       
+#                       
+# 
+# cbc_t <- cbc_trends %>% 
+#   left_join(.,t_table,by = c("parameter")) %>% 
+#   mutate(Survey = paste(Survey,type,sep = "_"),
+#          trend = Trend,
+#          abs_trend = abs(Trend))
+# 
+# all_trends2 <- bind_rows(all_trends,
+#                          cbc_t)
+# all_continental_trends <- all_trends2 %>% 
+#   filter(Region == "Survey_Wide")
+# all_politic_trends <- all_trends2 %>% 
+#   filter(Region != "Survey_Wide")
+# 
+# mxabs = 2000#quantile(all_trends$abs_trend,0.9999)
+# 
+# realised_all_politic_freq <- ggplot(data = all_politic_trends,
+#                                     aes(abs_trend,after_stat(density),
+#                                         colour = Survey))+
+#   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+#   xlab("Absolute value of state/province trends USGS and Audubon models (1966-2019)")+
+#   ylab("")+
+#   theme_bw()+
+#   coord_cartesian(ylim = c(0,0.7),
+#                   xlim = c(0,40))+
+#   facet_wrap(vars(t_years),
+#              nrow = 1,
+#              ncol = 5)
+# print(realised_all_politic_freq)
+# 
+# realised_all_sw_freq <- ggplot(data = all_continental_trends,
+#                                aes(abs_trend,after_stat(density),
+#                                    colour = Survey))+
+#   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+#   xlab("Absolute value of survey-wide trends USGS and Audubon models (1966-2019)")+
+#   ylab("")+
+#   theme_bw()+
+#   coord_cartesian(ylim = c(0,0.7),
+#                   xlim = c(0,40))+
+#   facet_wrap(vars(t_years),
+#              nrow = 1,
+#              ncol = 5)
+# print(realised_all_sw_freq)
+# 
+# 
+# all_sd_trends <- all_politic_trends %>% 
+#   group_by(AOU,t_years,Survey) %>% 
+#   summarise(sd_trends = sd(trend,na.rm = TRUE),
+#             min_trend = min(trend,na.rm = TRUE),
+#             max_trend = max(trend,na.rm = TRUE),
+#             q5_trend = quantile(trend,0.05,na.rm = TRUE),
+#             q95_trend = quantile(trend,0.95,na.rm = TRUE),
+#             .groups = "keep") %>% 
+#   filter(is.finite(sd_trends))
+# 
+# realised_all_sd <- ggplot(data = all_sd_trends,
+#                           aes(sd_trends,after_stat(density),
+#                               colour = Survey))+
+#   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
+#   xlab("SD (by species) of state/province trends USGS and Audubon models (1966-2019)")+
+#   ylab("")+
+#   theme_bw()+
+#   coord_cartesian(ylim = c(0,0.7),
+#                   xlim = c(0,40))+
+#   facet_wrap(vars(t_years),
+#              nrow = 1,
+#              ncol = 5)
+# print(realised_all_sd)
+# 
+# 
+
+
+
+
+
+
+
+
+
 
 
 
