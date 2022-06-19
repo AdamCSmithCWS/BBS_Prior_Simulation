@@ -136,7 +136,7 @@ mxabs = 2000#quantile(all_trends$abs_trend,0.9999)
 
 realised_all_politic_freq <- ggplot(data = all_politic_trends,
                                  aes(abs_trend,after_stat(density),
-                                     colour = Survey))+
+                                     group = Survey))+
   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
   xlab("Absolute value of state/province trends USGS and Audubon models (1966-2019)")+
   ylab("")+
@@ -150,7 +150,7 @@ print(realised_all_politic_freq)
 
 realised_all_sw_freq <- ggplot(data = all_continental_trends,
                                  aes(abs_trend,after_stat(density),
-                                     colour = Survey))+
+                                     group = Survey))+
   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
   xlab("Absolute value of survey-wide trends USGS and Audubon models (1966-2019)")+
   ylab("")+
@@ -175,7 +175,7 @@ all_sd_trends <- all_politic_trends %>%
 
 realised_all_sd <- ggplot(data = all_sd_trends,
                                     aes(sd_trends,after_stat(density),
-                                        colour = Survey))+
+                                        group = Survey))+
   geom_freqpoly(breaks = c(0,seq(0.5,mxabs,0.5)),center = 0)+
   xlab("SD (by species) of state/province trends USGS and Audubon models (1966-2019)")+
   ylab("")+
@@ -285,70 +285,32 @@ print(realised_all_sd)
 
 
 
-
-
-
-
-
-
-
-
-
 # Integrate simulated results ---------------------------------------------
 
 
+load("output/GAMYE_prior_sim_summary.RData")
 
+for(ver in c("smooth","full")){
+  
+pdf(file = paste0("Figures/Prior_GAMYE_comparisons",ver,".pdf"),
+    height = 11,
+    width = 8.5)
 
-
-
-
-
-tb_sims <- data.frame(model = c(rep("GAMYE",2),
-                                rep("Difference",3)),
-                      spatial = c(TRUE,FALSE,
-                                  TRUE,FALSE,FALSE),
-                      hierarchical = c(TRUE,TRUE,
-                                       TRUE,TRUE,FALSE),
-                      fl = paste0(c("Hier_prior_sim_summary",
-                                    "Hier_Non_Spatial_prior_sim_summary",
-                                    "Hier_Spatial_Difference_prior_sim_summary",
-                                    "Hier_Non_Spatial_Difference_prior_sim_summary",
-                                    "Non_Hierarchical_Difference_prior_sim_summary"),".RData"))
-
-
-
-
-pdf(file = "Figures/Prior_trend_comparisons.pdf",
-    width = 11,
-    height = 8.5)
-
-figso <- vector(mode = "list",length = nrow(tb_sims))
-for(i in 1:nrow(tb_sims)){
-  figso[[i]] <- vector(mode = "list",3)
-M = tb_sims[i,"model"]
-spat = tb_sims[i,"spatial"]
-hier = tb_sims[i,"hierarchical"]
-fl = tb_sims[i,"fl"]
-
-load(paste0("output/",fl))
-
-modl <- paste("Non Hierarchical",M)
-if(spat & hier){
-  modl <- paste("Spatial Hierarchical",M)
-}
-if(!spat & hier){
-  modl <- paste("Non Spatial Hierarchical",M)
-}
 trends_abs <- trends_out %>% 
-  filter(!is.na(Stratum_Factored)) %>% 
+  filter(!is.na(Stratum_Factored),
+         version == ver) %>% 
   mutate(abs_trend = abs(trend),
          scale_factor = factor(prior_scale,ordered = TRUE),
+         scale_y_factor = factor(prior_scale_y,ordered = TRUE),
+         scale_factor_plot = factor(paste(prior_scale,prior_scale_y,ordered = TRUE)),
+         nyears2 = nyears,
+         nyears = ifelse(nyears2 > 50,50,nyears2),
          t_years = factor(paste0(nyears,"-year trends"),
                           levels = c("1-year trends",
                                      "5-year trends",
                                      "10-year trends",
                                      "20-year trends",
-                                     "53-year trends"),
+                                     "50-year trends"),
                           ordered = TRUE))
 
 trends_abs1 <- trends_abs %>% 
@@ -361,49 +323,74 @@ trends_abs1 <- trends_abs %>%
 comp_plot_strat <- realised_all_politic_freq +
   geom_freqpoly(data = trends_abs1,
                 aes(abs_trend,after_stat(density),
-                    colour = scale_factor),
+                    colour = scale_factor_plot),
                 breaks = c(0,seq(0.1,100,0.5)),
                 center = 0,
-                alpha = 0.5)+
+                alpha = 0.5,
+                inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("Regional trends",modl))
-
+  labs(title = paste("Regional trends",ver))
 
 
 
 TRENDS_abs <- trends_out %>% 
-  filter(is.na(Stratum_Factored)) %>% 
+  filter(is.na(Stratum_Factored),
+         version == ver) %>% 
   mutate(abs_trend = abs(trend),
          scale_factor = factor(prior_scale,ordered = TRUE),
+         scale_y_factor = factor(prior_scale_y,ordered = TRUE),
+         scale_factor_plot = factor(paste(prior_scale,prior_scale_y,ordered = TRUE)),
+         nyears2 = nyears,
+         nyears = ifelse(nyears2 > 50,50,nyears2),
          t_years = factor(paste0(nyears,"-year trends"),
                           levels = c("1-year trends",
                                      "5-year trends",
                                      "10-year trends",
                                      "20-year trends",
-                                     "53-year trends"),
+                                     "50-year trends"),
                           ordered = TRUE))
 
 TRENDS_abs1 <- TRENDS_abs %>% 
   mutate(distribution_factor = factor(distribution,
                                       ordered = TRUE)) %>% 
-  filter(distribution_factor %in% c("t3"))
+  filter(distribution_factor %in% c("t3"),
+         grepl("Comp",x = param))
 
 comp_plot_sw <- realised_all_sw_freq +
   geom_freqpoly(data = TRENDS_abs1,
                 aes(abs_trend,after_stat(density),
-                    colour = scale_factor),
+                    colour = scale_factor_plot),
                 breaks = c(0,seq(0.1,100,0.5)),
                 center = 0,
-                alpha = 0.5)+
+                alpha = 0.5,
+                inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("Survey-wide trends",modl))
+  labs(title = paste("Composite survey-wide trends",ver))
 
+if(ver == "smooth"){
+TRENDS_abs1 <- TRENDS_abs %>% 
+  mutate(distribution_factor = factor(distribution,
+                                      ordered = TRUE)) %>% 
+  filter(distribution_factor %in% c("t3"),
+         !grepl("Comp",x = param))
 
+comp_plot_sw2 <- realised_all_sw_freq +
+  geom_freqpoly(data = TRENDS_abs1,
+                aes(abs_trend,after_stat(density),
+                    colour = scale_factor_plot),
+                breaks = c(0,seq(0.1,100,0.5)),
+                center = 0,
+                alpha = 0.5,
+                inherit.aes = FALSE)+
+  scale_colour_viridis_d(begin = 0.4,end = 0.9,
+                         guide_legend(title = "Prior scale"))+
+  labs(title = paste("Hyperparameter survey-wide trends",ver))
+}
 
 trends_sd <- trends_abs1 %>% 
-  group_by(.draw,t_years,distribution_factor,scale_factor) %>% 
+  group_by(.draw,t_years,distribution_factor,scale_factor_plot) %>% 
   summarise(sd_trends = sd(trend),
             min_trend = min(trend),
             max_trend = max(trend),
@@ -415,26 +402,28 @@ trends_sd <- trends_abs1 %>%
 comp_plot_sd <- realised_all_sd +
   geom_freqpoly(data = trends_sd,
                 aes(sd_trends,after_stat(density),
-                    colour = scale_factor),
+                    colour = scale_factor_plot),
                 breaks = c(0,seq(0.1,100,0.5)),
                 center = 0,
-                alpha = 0.5)+
+                alpha = 0.5,
+                inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("SD trends",modl))
+  labs(title = paste("SD trends",ver))
 
-figso[[i]][[1]] <- comp_plot_strat
-figso[[i]][[2]] <- comp_plot_sw
-figso[[i]][[3]] <- comp_plot_sd
-
-fnp <- (comp_plot_strat/comp_plot_sw/comp_plot_sd) +
+if(ver == "smooth"){
+fnp <- (comp_plot_strat/comp_plot_sw/comp_plot_sw2/comp_plot_sd) +
   plot_layout(guides = "collect")
-
-print(fnp)
-print(modl)
+}else{
+  fnp <- (comp_plot_strat/comp_plot_sw/comp_plot_sd) +
+    plot_layout(guides = "collect") 
 }
+print(fnp)
+
+
+
 dev.off()
 
-
+}
 
 
