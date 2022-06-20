@@ -286,13 +286,17 @@ print(realised_all_sd)
 
 
 # Integrate simulated results ---------------------------------------------
+prior_scales <- c(1,1.5,2)
+pps <- c("t3","t10","norm")
+prior_scales_y <- c(2,4,10)
 
 
 load("output/GAMYE_prior_sim_summary.RData")
 
+for(pp in pps){
 for(ver in c("smooth","full")){
   
-pdf(file = paste0("Figures/Prior_GAMYE_comparisons",ver,".pdf"),
+pdf(file = paste0("Figures/Prior_GAMYE_comparisons",pp,"-",ver,".pdf"),
     height = 11,
     width = 8.5)
 
@@ -316,7 +320,7 @@ trends_abs <- trends_out %>%
 trends_abs1 <- trends_abs %>% 
   mutate(distribution_factor = factor(distribution,
                                       ordered = TRUE)) %>% 
-  filter(distribution_factor %in% c("t3"))
+  filter(distribution_factor == pp)
 
 
 
@@ -330,7 +334,7 @@ comp_plot_strat <- realised_all_politic_freq +
                 inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("Regional trends",ver))
+  labs(title = paste(pp,"Regional trends",ver))
 
 
 
@@ -354,7 +358,7 @@ TRENDS_abs <- trends_out %>%
 TRENDS_abs1 <- TRENDS_abs %>% 
   mutate(distribution_factor = factor(distribution,
                                       ordered = TRUE)) %>% 
-  filter(distribution_factor %in% c("t3"),
+  filter(distribution_factor == pp,
          grepl("Comp",x = param))
 
 comp_plot_sw <- realised_all_sw_freq +
@@ -367,13 +371,13 @@ comp_plot_sw <- realised_all_sw_freq +
                 inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("Composite survey-wide trends",ver))
+  labs(title = paste(pp,"Composite survey-wide trends",ver))
 
 if(ver == "smooth"){
 TRENDS_abs1 <- TRENDS_abs %>% 
   mutate(distribution_factor = factor(distribution,
                                       ordered = TRUE)) %>% 
-  filter(distribution_factor %in% c("t3"),
+  filter(distribution_factor == pp,
          !grepl("Comp",x = param))
 
 comp_plot_sw2 <- realised_all_sw_freq +
@@ -386,7 +390,7 @@ comp_plot_sw2 <- realised_all_sw_freq +
                 inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("Hyperparameter survey-wide trends",ver))
+  labs(title = paste(pp,"Hyperparameter survey-wide trends",ver))
 }
 
 trends_sd <- trends_abs1 %>% 
@@ -409,7 +413,7 @@ comp_plot_sd <- realised_all_sd +
                 inherit.aes = FALSE)+
   scale_colour_viridis_d(begin = 0.4,end = 0.9,
                          guide_legend(title = "Prior scale"))+
-  labs(title = paste("SD trends",ver))
+  labs(title = paste(pp,"SD trends",ver))
 
 if(ver == "smooth"){
 fnp <- (comp_plot_strat/comp_plot_sw/comp_plot_sw2/comp_plot_sd) +
@@ -423,7 +427,7 @@ print(fnp)
 
 
 dev.off()
-
+}
 }
 
 

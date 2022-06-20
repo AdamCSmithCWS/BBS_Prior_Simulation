@@ -183,8 +183,8 @@ NSMOOTH_out <- NULL
 trends_out <- NULL
 summ_out <- NULL
 
-for(pp in pps[c(1,2,3)]){
-  for(prior_scale in prior_scales[c(1,2,3)]){
+for(pp in pps[c(3)]){
+  for(prior_scale in prior_scales[c(1,2)]){
     for(prior_scale_y in prior_scales_y[c(2,3)]){
     
       
